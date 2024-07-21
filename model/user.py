@@ -524,13 +524,13 @@ class StockUser(db.Model):
             uid = body.get("uid")
             return StockUser.query.filter(StockUser._user_id == uid).value(StockUser._stockmoney)
         except Exception as e:
-                return {"error": "Can't find user in StockUser table"},500
+                return {"error": "Can't find user in StockUser table. Possible fix: Run /initilize first to log user in StockUser table"},500
     # return user id in the StockUser table
     def get_userid(self,uid):
         try:
             return StockUser.query.filter(StockUser._user_id == uid).value(StockUser.id)
         except Exception as e:
-                return {"error": "Can't find user in StockUser table"},500
+                return {"error": "Can't find user in StockUser table. Possible fix: Run /initilize first to log user in StockUser table"},500
 class Transactions(db.Model):
     __tablename__ = 'stock_transactions'
 
@@ -617,7 +617,7 @@ class Transactions(db.Model):
             db.session.commit()
             return stock_user.id
         except Exception as e:
-            return {"error": "account has not been autocreated for stock game"},500
+            return {"error": "account has not been autocreated for stock game. Run /initilize first to log user in StockUser table"},500
             
         
         
@@ -744,7 +744,7 @@ class User_Transaction_Stocks(db.Model):
                 db.session.add(stock_transaction)
                 db.session.commit()
             else:
-                print(f"StockUser for user {transactionid} already exists.")
+                print("error: transaction log has not been created yet")
 
 # Builds working data set for testing
 def initUsers():
