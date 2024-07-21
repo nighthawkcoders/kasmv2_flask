@@ -10,7 +10,10 @@ stock_api = Blueprint('stock_api', __name__,
 
 # API docs https://flask-restful.readthedocs.io/en/latest/api.html
 api = Api(stock_api)
-
+""" For this code to work, first you would need to bulk update the stock table by using the data in the csv file: stocks_table_exp.csv. 
+Then the first thing to run is _initilize_user to create a new user in the StockUser table. 
+A possible post request of postman:{"uid":"niko","quantity":10,"symbol": "AAPL"}.
+All db change are found in the model/user.py file"""
 class StockAPI:
     # used to create a user log to stockuser table
     # Supposed to be called when user first starts
