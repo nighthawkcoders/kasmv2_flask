@@ -352,6 +352,16 @@ class User(db.Model, UserMixin):
             db.session.rollback()
             print(f"Unexpected error removing sections: {e}")
             return False
+    def add_stockuser(self, uid):
+        user = User.query.filter_by(_uid=uid).first()
+        if user:
+            found = user.stock_user is not None
+            if not found:
+                stock_user = StockUser(user_id=user.uid, stockmoney=100000, accountdate=date.today())
+                db.session.add(stock_user)
+                db.session.commit()
+            else:
+                print(f"StockUser for user {uid} already exists.")
     """Database Creation and Testing """
 class Stocks(db.Model):
     __tablename__ = 'stocks'
