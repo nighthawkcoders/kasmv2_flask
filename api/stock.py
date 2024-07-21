@@ -12,12 +12,16 @@ stock_api = Blueprint('stock_api', __name__,
 api = Api(stock_api)
 
 class StockAPI:
+    # used to create a user log to stockuser table
+    # Supposed to be called when user first starts
     class _initilize_user(Resource):
         def post(self):
             body = request.get_json()
             uid = body.get('uid')
             u = User.add_stockuser(self,uid)
             print(str(u))
+    # not final,  used to test if major db changes work
+    # contains no logic for project yet
     class _transaction_buy(Resource):
         def post(self):
             body = request.get_json()

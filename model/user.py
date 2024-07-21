@@ -142,7 +142,7 @@ class User(db.Model, UserMixin):
     # Relationship to manage the association between users and sections
     sections = db.relationship('Section', secondary=UserSection.__table__, lazy='subquery',
                                backref=db.backref('users', lazy=True))
-    
+    # One-One relationship with users and StockUsers
     stock_user = db.relationship("StockUser", backref=db.backref("users", cascade="all"), lazy=True,uselist=False)
 
 
@@ -352,6 +352,8 @@ class User(db.Model, UserMixin):
             db.session.rollback()
             print(f"Unexpected error removing sections: {e}")
             return False
+    # creates a new log to StockUser table. Refers User table
+    # purpose: realtes to actual user in user table but doen't interfer with other things on user table
     def add_stockuser(self, uid):
         user = User.query.filter_by(_uid=uid).first()
         if user:
@@ -363,6 +365,7 @@ class User(db.Model, UserMixin):
             else:
                 print(f"StockUser for user {uid} already exists.")
     """Database Creation and Testing """
+## initilazation of table used to store all stocks
 class Stocks(db.Model):
     __tablename__ = 'stocks'
     id = db.Column(db.Integer, primary_key=True)
@@ -430,12 +433,14 @@ class Stocks(db.Model):
             self.quantity = quantity
         db.session.commit()
         return self
+    # gets price of stock
     def get_price(self,body):
         stock = body.get("symbol")
         try:
             return Stocks.query.filter(Stocks._symbol == stock).value(Stocks._sheesh)
         except Exception as e:
             return {"error": "No such stock exists"},500
+    # returns stock id: refered in many to many table: User_Transaction_Stocks
     def get_stockid(self,symbol):
         try:
             return Stocks.query.filter(Stocks._symbol == symbol).value(Stocks.id)
@@ -456,6 +461,7 @@ class StockUser(db.Model):
     _stockmoney = db.Column(db.Integer, nullable=False)
     _accountdate = db.Column(db.Date)
 
+    # creates a one to many relatio with transaction table
     transactions = db.relationship('Transactions', lazy='subquery', backref=db.backref('stockuser', lazy=True))
     #
     # 
@@ -512,12 +518,14 @@ class StockUser(db.Model):
             "stockmoney": self.stockmoney,
             "accountdate": self._accountdate,
         }
+    # returns balance of user 
     def get_balance(self,body):
         try:
             uid = body.get("uid")
             return StockUser.query.filter(StockUser._user_id == uid).value(StockUser._stockmoney)
         except Exception as e:
                 return {"error": "Can't find user in StockUser table"},500
+    # return user id in the StockUser table
     def get_userid(self,uid):
         try:
             return StockUser.query.filter(StockUser._user_id == uid).value(StockUser.id)
@@ -597,6 +605,7 @@ class Transactions(db.Model):
             "quantity": self.quantity,
             "transaction_date": self._transaction_date
         }
+    # creates buy log in transaction table
     def createlog_buy(self,body):
         uid = body.get('uid')
         quantity = body.get('quantity')
@@ -612,7 +621,7 @@ class Transactions(db.Model):
             
         
         
-
+# Many to many intermedetary table
 class User_Transaction_Stocks(db.Model):
     __tablename__ = 'user_transaction_stocks'
     _user_id = db.Column(db.Integer, db.ForeignKey('stockuser.id'), primary_key=True, nullable=False)
@@ -719,6 +728,7 @@ class User_Transaction_Stocks(db.Model):
             "transaction_amount": self._transaction_amount,
             "transaction_time": self._transaction_time
         }
+    # creates log in this table
     def multilog_buy(self,body,value,transactionid):
         transaction = Transactions.query.filter_by(id=transactionid).first()
         uid = body.get("uid")
