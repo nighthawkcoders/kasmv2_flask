@@ -3,7 +3,8 @@ from flask import Blueprint, request, jsonify, current_app, Response, g
 from flask_restful import Api, Resource # used for REST API building
 from datetime import datetime
 
-from model.user import User, StockUser,Transactions,Stocks, User_Transaction_Stocks
+from model.user import User
+from model.stocks import StockUser,Transactions,Stocks, User_Transaction_Stocks
 
 stock_api = Blueprint('stock_api', __name__,
                    url_prefix='/stock')
