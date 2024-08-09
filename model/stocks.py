@@ -257,7 +257,7 @@ class StockTransaction(db.Model):
         self._user_id = user_id
         self._transaction_type = transaction_type
         self._quantity = quantity
-        self._transaction_date = date.today()
+        self._transaction_date = transaction_date
 
     @property
     def user_id(self):
@@ -314,21 +314,40 @@ class StockTransaction(db.Model):
             "transaction_date": self._transaction_date
         }
     # creates buy log in transaction table
-    def createlog_initialbuy(self,body):
+    def createlog_initialbuy(self, body):
         uid = body.get("uid")
         quantity = body.get("quantity")
-        transactiontype = 'buy'
+        transactiontype = 'buy'     
         try:
-            user = StockUser.query.filter_by(_uid = uid).first()
+            # Query the user with the given uid
+            user = StockUser.query.filter_by(_uid=uid).first()
+
+            # Get the current date
             current_date = date.today()
-# Subtract one year from the current date
-            new_date = current_date - relativedelta(years=1)
-            stock_user = StockTransaction(user_id=user.id, transaction_type=transactiontype, transaction_date=new_date,quantity=quantity)
+
+            # Subtract one year from the current date by adjusting the year attribute
+            new_date = current_date.replace(year=current_date.year - 1)
+
+            # Create a new StockTransaction object
+            stock_user = StockTransaction(
+                user_id=user.id,
+                transaction_type=transactiontype,
+                transaction_date=new_date,
+                quantity=quantity
+            )
+
+            # Add the new transaction to the database session
             db.session.add(stock_user)
+
+            # Commit the transaction to the database
             db.session.commit()
+
+            # Return the id of the newly created transaction
             return stock_user.id
+    
         except Exception as e:
-            return {"error": "account has not been autocreated for stock game. Run /initilize first to log user in StockUser table"},500
+            # Return an error message if an exception occurs
+            return {"error": f"account has not been autocreated for {uid}, error: {str(e)}"}
         
     def createlog_buy(self,body):
         uid = body.get('uid')
@@ -365,14 +384,14 @@ class UserTransactionStock(db.Model):
         backref=db.backref("user_transaction_stocks", cascade="all, delete-orphan", single_parent=True, overlaps="stock_transaction,stockuser")
     )
 
-    def __init__(self, user_id, transaction_id, stock_id, quantity, price_per_stock,transaction_amount):
+    def __init__(self, user_id, transaction_id, stock_id, quantity, price_per_stock,transaction_amount,transaction_time):
         self._user_id = user_id
         self._transaction_id = transaction_id
         self._stock_id = stock_id
         self._quantity = quantity
         self._price_per_stock = price_per_stock
         self._transaction_amount = transaction_amount
-
+        self._transaction_time = transaction_time
     def __repr__(self):
         return f'<UserTransactionStock {self._user_id} {self._transaction_id} {self._stock_id}>'
     @property
@@ -470,16 +489,88 @@ class UserTransactionStock(db.Model):
                 userid = StockUser.get_userid(self,uid)
                 stockid = TableStock.get_stockid(self,symbol)
                 stockprice = TableStock.get_price(self,body)
-                stock_transaction = UserTransactionStock(user_id=userid,transaction_id=transaction.id, stock_id=stockid, quantity=quantity,price_per_stock=stockprice,transaction_amount= value)
+                stock_transaction = UserTransactionStock(user_id=userid,transaction_id=transaction.id, stock_id=stockid, quantity=quantity,price_per_stock=stockprice,transaction_amount= value,transaction_time= date.today())
+                db.session.add(stock_transaction)
+                db.session.commit()
+            else:
+                print("error: transaction log has not been created yet")\
+                    
+    def multilog_buy_initial(self,body,value,transactionid):
+        transaction = StockTransaction.query.filter_by(id=transactionid).first()
+        uid = body.get("uid")
+        symbol = body.get("symbol")
+        quantity = body.get("quantity")
+        if transaction:
+            found = transaction.stock_transaction is not None
+            if not found:
+                user = StockUser.query.filter_by(_uid=uid).first()
+            # Get the current date
+                current_date = date.today()
+            # Subtract one year from the current date by adjusting the year attribute
+                new_date = current_date.replace(year=current_date.year - 1)
+                userid = StockUser.get_userid(self,uid)
+                stockid = TableStock.get_stockid(self,symbol)
+                stockprice = TableStock.get_price(self,body)
+                stock_transaction = UserTransactionStock(user_id=userid,transaction_id=transaction.id, stock_id=stockid, quantity=quantity,price_per_stock=stockprice,transaction_amount= value,transaction_time= new_date)
                 db.session.add(stock_transaction)
                 db.session.commit()
             else:
                 print("error: transaction log has not been created yet")
-    def check_stock(self,body):
+    def check_tax(self,body):
         symbol = body.get("symbol")
+        quantity = body.get("quantity")
+        uid = body.get("uid")
         stockid = TableStock.get_stockid(self,symbol)
+        userid = StockUser.get_userid(self,uid)
+        one_year_ago = datetime.now() - timedelta(days=365)
         try:
-            UserTransactionStock.query.filter(_stock_id = stockid)
-            return True
+            s = list(UserTransactionStock.query.filter_by(_stock_id = stockid, _user_id = userid).all())
+            buy_list = []
+            sell_list = []
+            one_year_list = []
+            less_one_year_list = []
+            
+            for i in s:
+                transactionid = i.transaction_id
+                transaction_type = StockTransaction.query.filter(StockTransaction.id == transactionid).value(StockTransaction._transaction_type)
+                if transaction_type == 'buy':
+                    buy_list.append(i)
+                else:
+                    sell_list.append(i)
+            for j in buy_list:
+                time = j._transaction_time
+                if time <= one_year_ago:
+                    one_year_list.append(j)
+                else:
+                    less_one_year_list.append(j)
+                print(str(one_year_list))
+                    
+                print(str(time))
         except Exception as e:
             return {e}
+    def check_stock_quantity(self,body):
+        symbol = body.get("symbol")
+        uid = body.get("uid")
+        stockid = TableStock.get_stockid(self,symbol)
+        userid = StockUser.get_userid(self,uid)
+        try:
+            s = list(UserTransactionStock.query.filter_by(_stock_id = stockid, _user_id = userid).all())
+            buy_list = []
+            sell_list = []
+            num_buy = 0
+            num_sell = 0
+            for i in s:
+                transactionid = i.transaction_id
+                transaction_type = StockTransaction.query.filter(StockTransaction.id == transactionid).value(StockTransaction._transaction_type)
+                if transaction_type == 'buy':
+                    buy_list.append(i)
+                    print(buy_list)
+                    num_buy += i.quantity
+                else:
+                    sell_list.append(i)
+                    num_sell += i.quantity
+            
+            return num_buy - num_sell
+        except Exception as e:
+            return {e}
+    

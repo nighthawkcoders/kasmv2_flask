@@ -95,7 +95,7 @@ class StockAPI:
                 StockUser.updatebal(self,body,transactionval)
                 # create stocktransacotin log
                 u=StockTransaction.createlog_initialbuy(self,body)
-                UserTransactionStock.multilog_buy(self,body = body,value = transactionval,transactionid=u)
+                UserTransactionStock.multilog_buy_initial(self,body = body,value = transactionval,transactionid=u)
                 # update stock quantity
                 TableStock.updatequantity(self,body,isbuy)
                 return jsonify("Transaction successful")
@@ -125,10 +125,11 @@ class StockAPI:
     class _transaction_sell(Resource):
         def post(self):
             body = request.get_json()
+            quantity = body.get("quantity")
             symbol = body.get("symbol")
-            stockintransaction = UserTransactionStock.check_stock(self,body)
-            if stockintransaction == True:
-                print("this works")
+            avaliable_quantity = UserTransactionStock.check_stock_quantity(self,body)
+            if avaliable_quantity >= quantity :
+                UserTransactionStock.check_tax(self,body)
             else:
                 return jsonify({'error':'No stock to sell'}), 400
     class _Account_expirary(Resource):
